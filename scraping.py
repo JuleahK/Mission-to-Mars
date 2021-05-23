@@ -7,121 +7,103 @@
 from splinter import Browser
 from bs4 import BeautifulSoup as soup
 import pandas as pd
+import datetime as dt
 from webdriver_manager.chrome import ChromeDriverManager
 
 
-# In[2]:
+def scrape_all():
+    executable_path = {'executable_path': ChromeDriverManager().install()}
+    browser = Browser('chrome', **executable_path, headless=False)
 
 
-executable_path = {'executable_path': ChromeDriverManager().install()}
-browser = Browser('chrome', **executable_path, headless=False)
+    news_title, news_paragraph = mars_news(browser)
 
 
-# In[3]:
+    data = {
+      "news_title": news_title,
+      "news_paragraph": news_paragraph,
+      "featured_image": featured_image(browser),
+      "facts": mars_facts(),
+      "last_modified": dt.datetime.now()
+    }
 
+    browser.quit()
+    return data
 
-url = 'https://redplanetscience.com/'
-browser.visit(url)
 
+def mars_news(browser):
 
-# In[4]:
+    url = 'https://data-class-mars.s3.amazonaws.com/Mars/index.html'
+    browser.visit(url)
 
+    browser.is_element_present_by_css('div.list_text', wait_time=1)
 
-browser.is_element_present_by_css('div.list_text', wait_time=1)
 
+    html = browser.html
+    news_soup = soup(html, 'html.parser')
 
-# In[5]:
+   
+    try:
+        slide_elem = news_soup.select_one('div.list_text')
+        
+        news_title = slide_elem.find('div', class_='content_title').get_text()
+      
+        news_p = slide_elem.find('div', class_='article_teaser_body').get_text()
 
+    except AttributeError:
+        return None, None
 
-html = browser.html
-news_soup = soup(html, 'html.parser')
+    return news_title, news_p
 
-slide_elem = news_soup.select_one('div.list_text')
 
-slide_elem.find('div', class_='content_title')
+def featured_image(browser):
+   
+    url = 'https://data-class-jpl-space.s3.amazonaws.com/JPL_Space/index.html'
+    browser.visit(url)
 
+    full_image_elem = browser.find_by_tag('button')[1]
+    full_image_elem.click()
 
-# In[6]:
+   
+    html = browser.html
+    img_soup = soup(html, 'html.parser')
 
+  
+    try:
+      
+        img_url_rel = img_soup.find('img', class_='fancybox-image').get('src')
 
-news_title = slide_elem.find('div', class_='content_title').get_text()
-news_title
+    except AttributeError:
+        return None
 
+   
+    img_url = f'https://data-class-jpl-space.s3.amazonaws.com/JPL_Space/{img_url_rel}'
 
-# In[7]:
+    return img_url
 
 
-news_p = slide_elem.find('div', class_='article_teaser_body').get_text()
-news_p
+def mars_facts():
 
+    try:
+        
+        df = pd.read_html('https://data-class-mars-facts.s3.amazonaws.com/Mars_Facts/index.html')[0]
 
-# # ## JPL Space Images Featured Image
+    except BaseException:
+        return None
 
-# In[8]:
+  
+    df.columns=['Description', 'Mars', 'Earth']
+    df.set_index('Description', inplace=True)
 
+   
+    return df.to_html(classes="table table-striped")
 
-url = 'https://spaceimages-mars.com'
-browser.visit(url)
 
+if __name__ == "__main__":
+   
+    print(scrape_all())
 
-# In[9]:
 
-
-full_image_elem = browser.find_by_tag('button')[1]
-full_image_elem.click()
-
-
-# In[10]:
-
-
-html = browser.html
-img_soup = soup(html, 'html.parser')
-
-
-# In[11]:
-
-
-img_url_rel = img_soup.find('img', class_='fancybox-image').get('src')
-img_url_rel
-
-
-# In[12]:
-
-
-img_url = f'https://spaceimages-mars.com/{img_url_rel}'
-img_url
-
-
-# # ## Mars Facts
-
-# In[13]:
-
-
-df = pd.read_html('https://galaxyfacts-mars.com')[0]
-df.head()
-
-
-# In[14]:
-
-
-df.columns=['Description', 'Mars', 'Earth']
-df.set_index('Description', inplace=True)
-df
-
-
-# In[15]:
-
-
-df.to_html()
-
-
-# In[16]:
-
-
-browser.quit()
-
-
-# In[ ]:
 
 
 
